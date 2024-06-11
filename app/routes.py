@@ -106,7 +106,7 @@ def get_sitio():
 @api_bp.route('/sitios', methods=['GET'])
 def get_sitios():
     db = get_db()
-    sitios = list(db.sitios.find({}, {'_id': False}))  # Excluir _id del resultado
+    sitios = list(db.sitios.find())  # Excluir _id del resultado
     # Convertir el ObjectId a cadena en cada documento
     for sitio in sitios:
         sitio['_id'] = str(sitio['_id'])
