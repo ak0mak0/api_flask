@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app.models import get_db, User
 from werkzeug.security import generate_password_hash
-from app.functions.generar_QR.qr_generator import generate_qr_for_all_sites
 from bson import ObjectId
 
 # Crear un Blueprint para las rutas de la API
@@ -122,8 +121,3 @@ def reset_all():
 
     return jsonify({"mensaje": "Todos los documentos en la colección 'sitios' han sido eliminados y el contador ha sido reiniciado"}), 200
 
-# Ruta para generar códigos QR para todos los sitios
-@api_bp.route('/generateQR', methods=['GET'])
-def generate_qr():
-    generate_qr_for_all_sites()
-    return jsonify({"mensaje": "Códigos QR generados con éxito"}), 200
