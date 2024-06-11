@@ -103,11 +103,13 @@ def get_sitio():
     return jsonify(sitio_info), 200
 
 
-# Ruta para obtener la lista de sitios
 @api_bp.route('/sitios', methods=['GET'])
 def get_sitios():
     db = get_db()
-    sitios = list(db.sitios.find())
+    sitios = list(db.sitios.find({}, {'_id': False}))  # Excluir _id del resultado
+    # Convertir el ObjectId a cadena en cada documento
+    for sitio in sitios:
+        sitio['_id'] = str(sitio['_id'])
     return jsonify({"sitios": sitios})
 
 # Ruta para resetear la colección sitios y counters
