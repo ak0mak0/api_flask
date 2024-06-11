@@ -8,4 +8,4 @@ app = create_app(DevelopmentConfig)
 
 # Punto de entrada de la aplicación
 if __name__ == '__main__':
-    app.run(host='51.79.105.168', port=8160)
+    app.run(host='0.0.0.0', port=8160)
