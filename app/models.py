@@ -64,8 +64,11 @@ class UserManager:
         }
         self.db_manager.create_collection("usuarios", validator=validator)
 
+from bson import ObjectId
+
 class User:
-    def __init__(self, username, password, name):
+    def __init__(self, username, password, name, _id=None):
+        self._id = _id
         self.username = username
         self.password = generate_password_hash(password)
         self.name = name
@@ -73,62 +76,19 @@ class User:
     def save(self):
         db = MongoDBManager().get_db()
         users_collection = db["usuarios"]
-        users_collection.insert_one({
+        user_data = {
             "username": self.username,
             "password": self.password,
             "name": self.name
-        })
+        }
+        result = users_collection.insert_one(user_data)
+        self._id = result.inserted_id  # Asignar el _id generado al objeto User
 
     @staticmethod
     def find_by_username(username):
         db = MongoDBManager().get_db()
         users_collection = db["usuarios"]
         return users_collection.find_one({"username": username})
-
-    def check_password(self, password):
-        return check_password_hash(self.password, password)
-
-    def __init__(self, id, username, name, password):
-        self.id = str(id)
-        self.username = username
-        self.name = name
-        self.password = password
-    
-    def save(self):
-        db = get_db()
-        db.usuarios.insert_one({
-            "username": self.username,
-            "name": self.name,
-            "password": self.password
-        })
-    
-    def get_id(self):
-        return self.id
-    
-    @staticmethod
-    def get(id):
-        db = get_db()
-        user = db.usuarios.find_one({'_id': ObjectId(id)})
-        if user:
-            return User(user["_id"], user["username"], user["name"], user["password"])
-        return None
-    
-    @staticmethod
-    def find_by_username(username):
-        db = get_db()
-        user = db.usuarios.find_one({"username": username})
-        if user:
-            return User(user["_id"], user["username"], user["name"], user["password"])
-        return None
-    
-    def is_authenticated(self):
-        return True
-    
-    def is_active(self):
-        return True
-    
-    def is_anonymous(self):
-        return False
 
     def check_password(self, password):
         return check_password_hash(self.password, password)

@@ -16,10 +16,15 @@ class UserHandler:
 
         existing_user = User.find_by_username(data["username"])
         if existing_user is None:
-            hashed_password = generate_password_hash(data["password"])
-            user = User(data["username"], hashed_password, data["name"])
+            user = User(data["username"], data["password"], data["name"])
             user.save()
-            return jsonify({"mensaje": "Usuario registrado con éxito", "_id": str(user._id)}), 201
+            user_info = {
+                "_id": str(user._id),  # Se convierte a cadena para devolverlo en formato JSON
+                "username": user.username,
+                "password": user.password,
+                "name": user.name,
+            }
+            return jsonify({"mensaje": "Usuario registrado con éxito", "usuario": user_info}), 201
         else:
             return jsonify({"error": "El usuario ya existe"}), 400
 
@@ -33,7 +38,7 @@ class UserHandler:
 
         user = User.find_by_username(data["username"])
         if user and user.check_password(data["password"]):
-            return jsonify({"mensaje": "Inicio de sesión exitoso", "_id": str(user._id)}), 200
+            return jsonify({"mensaje": "Inicio de sesión exitoso", "_id": str(user.id)}), 200
         else:
             return jsonify({"error": "Nombre de usuario o contraseña incorrectos"}), 401
 
