@@ -3,79 +3,46 @@ from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 
-def get_db():
-    # Obtener la configuración de la aplicación Flask
-    config = current_app.config
+class MongoDBManager:
+    def __init__(self):
+        self.client = None
+        self.db = None
 
-    # Construir la URI de conexión utilizando los valores de la configuración
-    username = config['MONGODB_USERNAME']
-    password = config['MONGODB_PASSWORD']
-    cluster = config['MONGODB_CLUSTER']
-    dbname = config['MONGODB_DBNAME']
-    uri = f"mongodb+srv://{username}:{password}@{cluster}/{dbname}?retryWrites=true&w=majority"
+    def connect(self):
+        # Obtener la configuración de la aplicación Flask
+        config = current_app.config
 
-    # Establecer la conexión con MongoDB Atlas
-    client = MongoClient(uri)
+        # Construir la URI de conexión utilizando los valores de la configuración
+        username = config['MONGODB_USERNAME']
+        password = config['MONGODB_PASSWORD']
+        cluster = config['MONGODB_CLUSTER']
+        dbname = config['MONGODB_DBNAME']
+        uri = f"mongodb+srv://{username}:{password}@{cluster}/{dbname}?retryWrites=true&w=majority"
 
-    # Devolver el objeto de base de datos
-    return client[dbname]
+        # Establecer la conexión con MongoDB Atlas
+        self.client = MongoClient(uri)
+        self.db = self.client[dbname]
 
+    def get_db(self):
+        if not self.db:
+            self.connect()
+        return self.db
 
+    def create_collection(self, name, validator=None):
+        db = self.get_db()
+        if name not in db.list_collection_names():
+            try:
+                db.create_collection(name, validator=validator)
+            except errors.CollectionInvalid:
+                pass
 
+class UserManager:
+    def __init__(self, mongodb_manager):
+        self.db_manager = mongodb_manager
+        self.create_collection_users()
 
-# obtiene ultimo valor en counters para generar un id incremental
-def get_next_sequence_value(sequence_name):
-    db = get_db()
-    counter = db.counters.find_one_and_update(
-        {"_id": sequence_name},
-        {"$inc": {"sequence_value": 1}},
-        return_document=True
-    )
-    return counter["sequence_value"]
-
-
-
-# Verifica que la colecion sitios y counters exista, sino crea una nueva
-def create_collection_sitios():
-    db = get_db()
-    if "sitios" not in db.list_collection_names():
-        try:
-            db.create_collection("sitios", validator={
-                '$jsonSchema': {
-                    'bsonType': 'object',
-                    'required': ["nombre_sitio", "latitud", "longitud", ],
-                    'properties': {
-                        'nombre_sitio': {
-                            'bsonType': 'string',
-                            'description': "Debe ser una cadena de caracteres para el nombre del sitio."
-                        },
-                        'latitud': {
-                            'bsonType': 'double',
-                            'description': "Debe ser un número flotante para la latitud."
-                        },
-                        'longitud': {
-                            'bsonType': 'double',
-                            'description': "Debe ser un número flotante para la longitud."
-                        },
-                    }
-                }
-            })
-        except errors.CollectionInvalid:
-            pass
-
-    if "counters" not in db.list_collection_names():
-        db.create_collection("counters")
-
-    if db.counters.find_one({"_id": "sitioid"}) is None:
-        db.counters.insert_one({"_id": "sitioid", "sequence_value": 0})
-
-
-        
-def create_collection_users():
-    db = get_db()
-    if "usuarios" not in db.list_collection_names():
-        # Crear la colección "usuarios" si no existe
-        db.create_collection("usuarios", validator={
+    def create_collection_users(self):
+        validator = {
             '$jsonSchema': {
                 'bsonType': 'object',
                 'required': ["username", "password", "name"],
@@ -94,10 +61,33 @@ def create_collection_users():
                     }
                 }
             }
-        })
-     
-# Clase User para manejar los usuarios
+        }
+        self.db_manager.create_collection("usuarios", validator=validator)
+
 class User:
+    def __init__(self, username, password, name):
+        self.username = username
+        self.password = generate_password_hash(password)
+        self.name = name
+
+    def save(self):
+        db = MongoDBManager().get_db()
+        users_collection = db["usuarios"]
+        users_collection.insert_one({
+            "username": self.username,
+            "password": self.password,
+            "name": self.name
+        })
+
+    @staticmethod
+    def find_by_username(username):
+        db = MongoDBManager().get_db()
+        users_collection = db["usuarios"]
+        return users_collection.find_one({"username": username})
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
+
     def __init__(self, id, username, name, password):
         self.id = str(id)
         self.username = username
