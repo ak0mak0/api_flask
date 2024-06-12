@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models import MongoDBManager, UserManager, User
+from app.models import MongoDBManager, UserManager, User, SistemaRecomendacion
 from werkzeug.security import generate_password_hash
 from bson import ObjectId
 
@@ -86,7 +86,7 @@ class SitioHandler:
 
         sitio_info = {
             '_id': str(sitio['_id']),
-            'nombre_sitio': sitio['nombre_sitio'],
+            'nombre': sitio['nombre'],
             'latitud': sitio['latitud'],
             'longitud': sitio['longitud']
         }
@@ -109,6 +109,22 @@ class SitioHandler:
         db.sitios.delete_many({})
         return jsonify({"mensaje": "Todos los documentos en la colección 'sitios' han sido eliminados y el contador ha sido reiniciado"}), 200
 
+class RecomendationHandler:
+    @staticmethod
+    def get_recomendacion():
+        data = request.json
+        sitio_actual = data.get('sitio')
+        usuario = data.get('usuario')
+
+        if not sitio_actual:
+            return jsonify({'error': 'se requiere el sitio actual'}), 400
+    
+        sistema_recomendacion = SistemaRecomendacion(sitio_actual, usuario)
+        recomendaciones = sistema_recomendacion.generar_recomendacion()
+
+        return jsonify(recomendaciones)
+
+
 api_bp.add_url_rule('/', view_func=lambda: 'Ejecutando API REST')
 api_bp.add_url_rule('/register', view_func=UserHandler.register, methods=['POST'])
 api_bp.add_url_rule('/login', view_func=UserHandler.login, methods=['POST'])
@@ -116,3 +132,4 @@ api_bp.add_url_rule('/addsitio', view_func=SitioHandler.add_sitio, methods=['POS
 api_bp.add_url_rule('/getsitio', view_func=SitioHandler.get_sitio, methods=['POST'])
 api_bp.add_url_rule('/sitios', view_func=SitioHandler.get_sitios, methods=['GET'])
 api_bp.add_url_rule('/reset_all', view_func=SitioHandler.reset_all, methods=['POST'])
+api_bp.add_url_rule('/recomendaciones', view_func=RecomendationHandler.get_recomendacion, methods=['POST'])
