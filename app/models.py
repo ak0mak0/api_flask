@@ -75,61 +75,53 @@ class UserManager:
 
 
 class Usuario:
-    def __init__(self, nombre, password, email, estado=None, usuario_creacion=None, es_administrador=None, fecha_creacion=None):
-        self._id = None  # No se asigna el ID al crear una nueva instancia
+    def __init__(self, nombre, password=None, email=None, estado=None, usuario_creacion=None, es_administrador=None, fecha_creacion=None, _id=None, password_hash=None):
+        self._id = _id
         self.nombre = nombre
-        self.set_password(password)  # Hasheamos la contraseña antes de almacenarla
+        if password:
+            self.set_password(password)
+        elif password_hash:
+            self.password_hash = password_hash
         self.email = email
         self.estado = estado if estado else "inactivo"
         self.usuario_creacion = usuario_creacion if usuario_creacion else "AppLugares"
         self.es_administrador = es_administrador if es_administrador is not None else False
         self.fecha_creacion = fecha_creacion if fecha_creacion else datetime.now()
-    
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    
-    @classmethod
-    def from_json(cls, json_data):
-        if json_data:
-            return cls(
-                _id=json_data.get('_id'),
-                nombre=json_data.get('nombre'),
-                password=json_data.get('password'),
-                email=json_data.get('email'),
-                estado=json_data.get('estado'),
-                usuario_creacion=json_data.get('usuario_creacion'),
-                es_administrador=json_data.get('es_administrador'),
-                fecha_creacion=json_data.get('fecha_creacion')
-            )
-        return None
-    
-    @classmethod
-    def find_by_id(cls, _id):
+    def update_estado(self, new_estado):
         db = MongoDBManager().get_db()
         users_collection = db["usuarios"]
-        usuario = users_collection.find_one({'_id': ObjectId(_id)})
+        users_collection.update_one({'_id': self._id}, {'$set': {'estado': new_estado}})
+        self.estado = new_estado
+
+    @classmethod
+    def find_by_name(cls, nombre):
+        db = MongoDBManager().get_db()
+        users_collection = db["usuarios"]
+        usuario = users_collection.find_one({'nombre': nombre})
         if usuario:
-            return Usuario(
-                _id=usuario['_id'],
+            return cls(
                 nombre=usuario['nombre'],
-                password=usuario['password'],
+                password_hash=usuario['password'],  # Hashed password
                 email=usuario['email'],
                 estado=usuario['estado'],
                 usuario_creacion=usuario['usuario_creacion'],
                 es_administrador=usuario['es_administrador'],
-                fecha_creacion=usuario['fecha_creacion']
+                fecha_creacion=usuario['fecha_creacion'],
+                _id=usuario['_id']  # Pasamos el ID aquí
             )
         return None
-    
+
     def save(self):
         db = MongoDBManager().get_db()
         users_collection = db["usuarios"]
 
-        # Preparamos los datos del usuario para ser insertados o actualizados en la base de datos
         user_data = {
             'nombre': self.nombre,
             'password': self.password_hash,  # Utilizamos el hash de la contraseña
@@ -140,13 +132,13 @@ class Usuario:
             'fecha_creacion': self.fecha_creacion
         }
 
-        # Si el usuario ya tiene un ID, lo actualizamos; de lo contrario, lo insertamos como un nuevo documento
         if self._id:
             users_collection.update_one({'_id': self._id}, {'$set': user_data})
         else:
             result = users_collection.insert_one(user_data)
-            self._id = result.inserted_id  # Asignamos el ID generado por MongoDB al objeto Usuario
-    
+            self._id = result.inserted_id
+
+
 class Sitio:
     def __init__(self, nombre_sitio, latitud, longitud, descripcion=None, categorias = None, calificacion_promedio=None):
         self.nombre_sitio = nombre_sitio

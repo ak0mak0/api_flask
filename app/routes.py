@@ -14,25 +14,27 @@ class UserHandler:
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Datos incompletos"}), 400
 
+        existing_user = Usuario.find_by_name(data["nombre"])
+        if existing_user:
+            return jsonify({"error": "Ya existe un usuario con este nombre"}), 400
+
         user = Usuario(
             nombre=data["nombre"],
             password=data["password"],
             email=data["email"]
         )
-        user.save()  # Guardar el usuario en la base de datos
+        user.save()
 
         user_info = {
-            "_id": str(user._id),  # Convertir el _id a una cadena para la respuesta JSON
+            "_id": str(user._id),
             "nombre": user.nombre,
             "email": user.email,
             "estado": user.estado,
             "usuario_creacion": user.usuario_creacion,
             "es_administrador": user.es_administrador,
-            "fecha_creacion": user.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S')  # Formatear la fecha como cadena
+            "fecha_creacion": user.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S')
         }
         return jsonify({"mensaje": "Usuario registrado con éxito", "usuario": user_info}), 201
-
-
 
     @staticmethod
     def login():
@@ -42,11 +44,15 @@ class UserHandler:
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Datos incompletos"}), 400
 
-        user = Usuario.find_by_id(data["_id"])
-        if user and user.password == data["password"]:
-            return jsonify({"mensaje": "Inicio de sesión exitoso", "_id": str(user._id)}), 200
+        user = Usuario.find_by_name(data["nombre"])
+        if user:
+            if user.check_password(data["password"]):
+                user.update_estado("activo")
+                return jsonify({"mensaje": "Conectado"}), 200
+            else:
+                return jsonify({"error": "Contraseña incorrecta"}), 401
         else:
-            return jsonify({"error": "Nombre de usuario o contraseña incorrectos"}), 401
+            return jsonify({"error": "Usuario no encontrado"}), 404
 
 class SitioHandler:
 
