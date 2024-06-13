@@ -1,70 +1,54 @@
 from flask import Blueprint, jsonify, request
-from app.models import MongoDBManager, UserManager, User, SistemaRecomendacion
-from werkzeug.security import generate_password_hash
+from app.models import MongoDBManager, Usuario, SistemaRecomendacion
 from bson import ObjectId
 
 api_bp = Blueprint('api', __name__)
+
 
 class UserHandler:
     @staticmethod
     def register():
         data = request.json
-        required_fields = ["username", "password", "name"]
+        required_fields = ["nombre", "password", "email"]
 
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Datos incompletos"}), 400
 
-        existing_user = User.find_by_username(data["username"])
-        if existing_user is None:
-            user = User(data["username"], data["password"], data["name"])
-            user.save()
-            user_info = {
-                "_id": str(user._id),  # Se convierte a cadena para devolverlo en formato JSON
-                "username": user.username,
-                "password": user.password,
-                "name": user.name,
-            }
-            return jsonify({"mensaje": "Usuario registrado con éxito", "usuario": user_info}), 201
-        else:
-            return jsonify({"error": "El usuario ya existe"}), 400
+        user = Usuario(
+            nombre=data["nombre"],
+            password=data["password"],
+            email=data["email"]
+        )
+        user.save()  # Guardar el usuario en la base de datos
+
+        user_info = {
+            "_id": str(user._id),  # Convertir el _id a una cadena para la respuesta JSON
+            "nombre": user.nombre,
+            "email": user.email,
+            "estado": user.estado,
+            "usuario_creacion": user.usuario_creacion,
+            "es_administrador": user.es_administrador,
+            "fecha_creacion": user.fecha_creacion.strftime('%Y-%m-%d %H:%M:%S')  # Formatear la fecha como cadena
+        }
+        return jsonify({"mensaje": "Usuario registrado con éxito", "usuario": user_info}), 201
+
+
 
     @staticmethod
     def login():
         data = request.json
-        required_fields = ["username", "password"]
+        required_fields = ["nombre", "password"]
 
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Datos incompletos"}), 400
 
-        user = User.find_by_username(data["username"])
-        if user and user.check_password(data["password"]):
-            return jsonify({"mensaje": "Inicio de sesión exitoso", "_id": str(user.id)}), 200
+        user = Usuario.find_by_id(data["_id"])
+        if user and user.password == data["password"]:
+            return jsonify({"mensaje": "Inicio de sesión exitoso", "_id": str(user._id)}), 200
         else:
             return jsonify({"error": "Nombre de usuario o contraseña incorrectos"}), 401
 
 class SitioHandler:
-    @staticmethod
-    def add_sitio():
-        db_manager = MongoDBManager()
-        db = db_manager.get_db()
-        data = request.json
-
-        if not data or not all(k in data for k in ("nombre_sitio", "latitud", "longitud")):
-            return jsonify({"error": "Datos incompletos"}), 400
-
-        nuevo_sitio = {
-            "_id": ObjectId(),
-            "nombre_sitio": data["nombre_sitio"],
-            "latitud": data["latitud"],
-            "longitud": data["longitud"]
-        }
-
-        try:
-            db.sitios.insert_one(nuevo_sitio)
-            nuevo_sitio['_id'] = str(nuevo_sitio['_id'])
-            return jsonify({"mensaje": "Sitio agregado exitosamente", "sitio": nuevo_sitio}), 201
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
 
     @staticmethod
     def get_sitio():
@@ -128,7 +112,6 @@ class RecomendationHandler:
 api_bp.add_url_rule('/', view_func=lambda: 'Ejecutando API REST')
 api_bp.add_url_rule('/register', view_func=UserHandler.register, methods=['POST'])
 api_bp.add_url_rule('/login', view_func=UserHandler.login, methods=['POST'])
-api_bp.add_url_rule('/addsitio', view_func=SitioHandler.add_sitio, methods=['POST'])
 api_bp.add_url_rule('/getsitio', view_func=SitioHandler.get_sitio, methods=['POST'])
 api_bp.add_url_rule('/sitios', view_func=SitioHandler.get_sitios, methods=['GET'])
 api_bp.add_url_rule('/reset_all', view_func=SitioHandler.reset_all, methods=['POST'])

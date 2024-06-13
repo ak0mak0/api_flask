@@ -1,7 +1,10 @@
 from pymongo import MongoClient, errors
 from flask import current_app
+from bson.objectid import ObjectId
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from bson import ObjectId
+
+
 
 class MongoDBManager:
     def __init__(self):
@@ -36,6 +39,9 @@ class MongoDBManager:
             except errors.CollectionInvalid:
                 pass
 
+
+
+
 class UserManager:
     def __init__(self, mongodb_manager):
         self.db_manager = mongodb_manager
@@ -64,60 +70,82 @@ class UserManager:
         }
         self.db_manager.create_collection("usuarios", validator=validator)
 
-from bson import ObjectId
 
-class User:
-    def __init__(self, username, password, name, _id=None):
-        self._id = _id
-        self.username = username
-        self.password = generate_password_hash(password)
-        self.name = name
 
-    def save(self):
-        db = MongoDBManager().get_db()
-        users_collection = db["usuarios"]
-        user_data = {
-            "username": self.username,
-            "password": self.password,
-            "name": self.name
-        }
-        result = users_collection.insert_one(user_data)
-        self._id = result.inserted_id  # Asignar el _id generado al objeto User
 
-    @staticmethod
-    def find_by_username(username):
-        db = MongoDBManager().get_db()
-        users_collection = db["usuarios"]
-        return users_collection.find_one({"username": username})
+
+class Usuario:
+    def __init__(self, nombre, password, email, estado=None, usuario_creacion=None, es_administrador=None, fecha_creacion=None):
+        self._id = None  # No se asigna el ID al crear una nueva instancia
+        self.nombre = nombre
+        self.set_password(password)  # Hasheamos la contraseña antes de almacenarla
+        self.email = email
+        self.estado = estado if estado else "inactivo"
+        self.usuario_creacion = usuario_creacion if usuario_creacion else "AppLugares"
+        self.es_administrador = es_administrador if es_administrador is not None else False
+        self.fecha_creacion = fecha_creacion if fecha_creacion else datetime.now()
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
-        return check_password_hash(self.password, password)
+        return check_password_hash(self.password_hash, password)
 
-# Modelos para recomendaciones
-class Usuario:
-    def __init__(self, user_id, nombre, preferencias):
-        self.user_id = user_id
-        self.nombre = nombre
-        self.preferencias = preferencias
     
     @classmethod
     def from_json(cls, json_data):
         if json_data:
             return cls(
-                user_id = json_data.get('_id'),
-                nombre = json_data.get('name'),
-                preferencias = json_data.get('preferencias', [])
+                _id=json_data.get('_id'),
+                nombre=json_data.get('nombre'),
+                password=json_data.get('password'),
+                email=json_data.get('email'),
+                estado=json_data.get('estado'),
+                usuario_creacion=json_data.get('usuario_creacion'),
+                es_administrador=json_data.get('es_administrador'),
+                fecha_creacion=json_data.get('fecha_creacion')
             )
         return None
     
     @classmethod
-    def find_by_id(cls, user_id):
+    def find_by_id(cls, _id):
         db = MongoDBManager().get_db()
         users_collection = db["usuarios"]
-        usuario = users_collection.find_one({'_id': user_id})
+        usuario = users_collection.find_one({'_id': ObjectId(_id)})
         if usuario:
-            return Usuario(usuario['_id'], usuario['name'], usuario['preferencias'])
+            return Usuario(
+                _id=usuario['_id'],
+                nombre=usuario['nombre'],
+                password=usuario['password'],
+                email=usuario['email'],
+                estado=usuario['estado'],
+                usuario_creacion=usuario['usuario_creacion'],
+                es_administrador=usuario['es_administrador'],
+                fecha_creacion=usuario['fecha_creacion']
+            )
         return None
+    
+    def save(self):
+        db = MongoDBManager().get_db()
+        users_collection = db["usuarios"]
+
+        # Preparamos los datos del usuario para ser insertados o actualizados en la base de datos
+        user_data = {
+            'nombre': self.nombre,
+            'password': self.password_hash,  # Utilizamos el hash de la contraseña
+            'email': self.email,
+            'estado': self.estado,
+            'usuario_creacion': self.usuario_creacion,
+            'es_administrador': self.es_administrador,
+            'fecha_creacion': self.fecha_creacion
+        }
+
+        # Si el usuario ya tiene un ID, lo actualizamos; de lo contrario, lo insertamos como un nuevo documento
+        if self._id:
+            users_collection.update_one({'_id': self._id}, {'$set': user_data})
+        else:
+            result = users_collection.insert_one(user_data)
+            self._id = result.inserted_id  # Asignamos el ID generado por MongoDB al objeto Usuario
     
 class Sitio:
     def __init__(self, nombre_sitio, latitud, longitud, descripcion=None, categorias = None, calificacion_promedio=None):
@@ -164,6 +192,7 @@ class Sitio:
         if sitio:
             return Sitio(sitio['nombre'], sitio['latitud'], sitio['longitud'], sitio['descripcion'], sitio['categorias'])
         return None
+
     
 class Categoria ():
     def __init__(self, nombre_categoria, descripcion):
@@ -182,6 +211,7 @@ class Categoria ():
             'nombre_categoria': self.nombre_categoria,
             'descripcion': self.descripcion
         }
+    
     
 class Recomendacion ():
     def __init__(self, usuario, sitio):
@@ -217,6 +247,7 @@ class Review ():
             'calificacion': self.calificacion,
             'comentario': self.comentario
         }
+  
     
 class SistemaRecomendacion:
     def __init__(self, json_sitio, json_usuario = None):
