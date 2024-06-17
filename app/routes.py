@@ -76,7 +76,7 @@ class UserHandler:
                 return jsonify({"error": "Usuario no encontrado"}), 404
         except Exception as e:
             return jsonify({"error": str(e)}), 400
-    
+
     @staticmethod
     def reset_users():
         db_manager = MongoDBManager()
@@ -120,6 +120,40 @@ class SitioHandler:
 
         db.sitios.update_one({'_id': ObjectId(sitio_id)}, {'$inc': {'cant_visitas': 1}})
         return jsonify({'mensaje': 'Visita agregada exitosamente'}), 200
+    
+    @staticmethod
+    def get_top_visited():
+        try:
+            top_sitios = Sitio.get_top_visited_sites()
+            top_sitios_ids = [str(sitio['_id']) for sitio in top_sitios]
+            return jsonify({"top_sitios_visitados": top_sitios_ids}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+        
+    @staticmethod
+    def get_top_liked():
+        try:
+            top_sitios_ids = Sitio.get_top_liked_sites()
+            return jsonify({"top_sitios_likes": top_sitios_ids}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+       
+    @staticmethod
+    def getinfo_sitio():
+        data = request.json
+        sitio_id = data.get("sitio_id")
+
+        if not sitio_id:
+            return jsonify({"error": "Se requiere proporcionar el ID del sitio"}), 400
+
+        try:
+            sitio = Sitio.find_by_id(ObjectId(sitio_id))
+            if sitio:
+                return jsonify(sitio.to_dict()), 200
+            else:
+                return jsonify({"error": "Sitio no encontrado"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
 
 
 # RUTAS DE REVIEWS
@@ -290,7 +324,9 @@ class RecomendacionHandler:
         db_manager = MongoDBManager()
         recos_sitio = RecosSitio(db_manager)
 
-        sitio_id = request.args.get('sitio_id')
+        data = request.get_json()
+        sitio_id = data.get("sitio_id")
+        
         if sitio_id:
             try:
                 sitio_id = ObjectId(sitio_id)
@@ -315,6 +351,9 @@ api_bp.add_url_rule('/userinfo', view_func=UserHandler.getinfo, methods=['POST']
 api_bp.add_url_rule('/resetsitios', view_func=SitioHandler.reset_sitios, methods=['POST'])
 api_bp.add_url_rule('/newsitio', view_func=SitioHandler.new_sitio, methods=['POST'])
 api_bp.add_url_rule('/addvisit', view_func=SitioHandler.add_visit, methods=['POST'])
+api_bp.add_url_rule('/get_top_visited', view_func=SitioHandler.get_top_visited, methods=['GET'])
+api_bp.add_url_rule('/get_top_liked', view_func=SitioHandler.get_top_liked, methods=['GET'])
+api_bp.add_url_rule('/get_info_sitio', view_func=SitioHandler.getinfo_sitio, methods=['POST'])
 
 # Rutas de Reviews
 api_bp.add_url_rule('/reset_reviews', view_func=ReviewHandler.reset_reviews, methods=['POST'])

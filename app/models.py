@@ -291,26 +291,42 @@ class Usuario:
         if user_data:
             return cls(**user_data)
         return None
+    
+    
 # CLASE CON METODOS PARA MANIPULAR LOS SITIOS
 class Sitio:
-    def __init__(self, nombre, descripcion, detalles, categorias, latitud, longitud):
-        self._id = None  # El _id será asignado automáticamente por la base de datos
+    def __init__(self, nombre, descripcion, detalles, categorias, latitud, longitud, _id=None, cant_visitas=0, cant_likes=0, calificacion_promedio=0.0, cant_calificaciones=0, reseñas=None, estado="activo", fecha_creacion=None, ultimo_ingreso=None, usuario_creacion="API"):
+        self._id = _id if _id else None
         self.nombre = nombre
         self.descripcion = descripcion
         self.detalles = detalles
         self.categorias = categorias
         self.latitud = latitud
         self.longitud = longitud
-        self.cant_visitas = 0
-        self.cant_likes = 0
-        self.calificacion_promedio = 0.0
-        self.cant_calificaciones = 0
-        self.reseñas = []
-        self.estado = "activo"
-        self.fecha_creacion = datetime.now()
-        self.ultimo_ingreso = self.fecha_creacion
-        self.usuario_creacion = "API"
-
+        self.cant_visitas = cant_visitas
+        self.cant_likes = cant_likes
+        self.calificacion_promedio = calificacion_promedio
+        self.cant_calificaciones = cant_calificaciones
+        self.reseñas = reseñas if reseñas else []
+        self.estado = estado
+        self.fecha_creacion = fecha_creacion if fecha_creacion else datetime.now()
+        self.ultimo_ingreso = ultimo_ingreso if ultimo_ingreso else self.fecha_creacion
+        self.usuario_creacion = usuario_creacion
+    
+    def get_top_visited_sites():
+        db = MongoDBManager().get_db()
+        sitios_collection = db["sitios"]
+        top_sitios = sitios_collection.find().sort("cant_visitas", -1).limit(4)
+        return list(top_sitios)
+    
+    @staticmethod
+    def get_top_liked_sites():
+        db = MongoDBManager().get_db()
+        sitios_collection = db["sitios"]
+        top_sitios = sitios_collection.find().sort("cant_likes", -1).limit(4)
+        top_sitios_ids = [str(sitio['_id']) for sitio in top_sitios]
+        return top_sitios_ids
+    
     @classmethod
     def from_json(cls, data):
         nombre = data.get("nombre")
@@ -324,6 +340,14 @@ class Sitio:
             raise ValueError("Faltan campos obligatorios en los datos JSON")
 
         return cls(nombre, descripcion, detalles, categorias, latitud, longitud)
+
+    @classmethod
+    def find_by_id(cls, sitio_id):
+        db = MongoDBManager().get_db()
+        sitio_data = db["sitios"].find_one({"_id": sitio_id})
+        if sitio_data:
+            return cls(**sitio_data)
+        return None
 
     def to_dict(self):
         return {
