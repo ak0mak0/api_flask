@@ -272,7 +272,25 @@ class Usuario:
         else:
             result = users_collection.insert_one(user_data)
             self._id = result.inserted_id
+    
+    def to_dict(self):
+        return {
+            "_id": str(self._id),
+            "nombre": self.nombre,
+            "email": self.email,
+            "estado": self.estado,
+            "usuario_creacion": self.usuario_creacion,
+            "es_administrador": self.es_administrador,
+            "fecha_creacion": self.fecha_creacion
+        }
 
+    @classmethod
+    def find_by_id(cls, user_id):
+        db = MongoDBManager().get_db()
+        user_data = db["usuarios"].find_one({"_id": user_id})
+        if user_data:
+            return cls(**user_data)
+        return None
 # CLASE CON METODOS PARA MANIPULAR LOS SITIOS
 class Sitio:
     def __init__(self, nombre, descripcion, detalles, categorias, latitud, longitud):

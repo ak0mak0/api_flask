@@ -50,16 +50,33 @@ class UserHandler:
                 # Cambiar el estado a inactivo si ya estaba activo
                 if user.estado == "activo":
                     user.update_estado("inactivo")
-                    return jsonify({"mensaje": "Desconectado"}), 200
+                    return jsonify({"mensaje": "Desconectado", "user_id": str(user._id)}), 200
                 # Cambiar el estado a activo
                 else:
                     user.update_estado("activo")
-                    return jsonify({"mensaje": "Conectado"}), 200
+                    return jsonify({"mensaje": "Conectado", "user_id": str(user._id)}), 200
             else:
                 return jsonify({"error": "Contraseña incorrecta"}), 401
         else:
             return jsonify({"error": "Usuario no encontrado"}), 404
+    
+    @staticmethod
+    def getinfo():
+        data = request.json
+        user_id = data.get("user_id")
 
+        if not user_id:
+            return jsonify({"error": "Se requiere proporcionar el ID del usuario"}), 400
+
+        try:
+            user = Usuario.find_by_id(ObjectId(user_id))
+            if user:
+                return jsonify(user.to_dict()), 200
+            else:
+                return jsonify({"error": "Usuario no encontrado"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+    
     @staticmethod
     def reset_users():
         db_manager = MongoDBManager()
@@ -292,6 +309,7 @@ api_bp.add_url_rule('/', view_func=lambda: 'Ejecutando API REST')
 api_bp.add_url_rule('/reset_users', view_func=UserHandler.reset_users, methods=['POST'])
 api_bp.add_url_rule('/register', view_func=UserHandler.register, methods=['POST'])
 api_bp.add_url_rule('/login', view_func=UserHandler.login, methods=['POST'])
+api_bp.add_url_rule('/userinfo', view_func=UserHandler.getinfo, methods=['POST'])
 
 # Rutas de Sitios
 api_bp.add_url_rule('/resetsitios', view_func=SitioHandler.reset_sitios, methods=['POST'])
