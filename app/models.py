@@ -397,11 +397,22 @@ class Review:
         self.like = False
         self.visito = False
         self.fecha = datetime.now()
-
+        
+    def get_visito_status(self):
+        existing_review = self.find_existing_review()
+        if existing_review:
+            return existing_review.get("visito", False)
+        return None
+        
     def save(self):
         db_manager = MongoDBManager()
         db = db_manager.get_db()
         reviews_collection = db["reviews"]
+
+        # Verificar si ya existe una combinación de id_usuario e id_sitio
+        existing_review = self.find_existing_review()
+        if existing_review:
+            return None  # No hacer nada si ya existe una reseña
 
         review_data = {
             "id_usuario": self.id_usuario,
@@ -530,7 +541,8 @@ class Review:
         else:
             raise ValueError("No existe una reseña para esta combinación de usuario y sitio.")
 
-class RecosSitio:
+
+class Recomendaciones:
     def __init__(self, mongodb_manager):
         self.db_manager = mongodb_manager
 

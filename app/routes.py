@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models import MongoDBManager, Usuario, UserManager, SitiosManager,Sitio, ReviewsManager, Review, RecosSitiosManager, RecosSitio
+from app.models import MongoDBManager, Usuario, UserManager, SitiosManager,Sitio, ReviewsManager, Review, RecosSitiosManager, Recomendaciones
 from bson import ObjectId
 
 api_bp = Blueprint('api', __name__)
@@ -184,7 +184,9 @@ class ReviewHandler:
         
         try:
             # Intentar guardar la nueva reseña
-            new_review.save()
+            result = new_review.save()
+            if result is None:
+                return jsonify({"mensaje": "La reseña ya existe, no se ha creado una nueva."}), 200
             return jsonify({"mensaje": "Reseña agregada exitosamente", "id_reseña": str(new_review._id)}), 201
         except ValueError as e:
             # Manejar el caso en el que ya exista una reseña para la misma combinación de id_usuario e id_sitio
@@ -283,7 +285,34 @@ class ReviewHandler:
         except ValueError as e:
             # Manejar errores en la adición de la calificación
             return jsonify({"error": str(e)}), 400
-    
+
+    @staticmethod
+    def get_visito_status():
+        data = request.json
+        
+        # Extraer los datos necesarios del JSON
+        id_usuario = data.get('id_usuario')
+        id_sitio = data.get('id_sitio')
+        
+        # Verificar que los IDs de usuario y sitio sean válidos
+        if not ObjectId.is_valid(id_usuario) or not ObjectId.is_valid(id_sitio):
+            return jsonify({"error": "ID de usuario o sitio no válidos"}), 400
+        
+        # Crear una nueva instancia de Review
+        review = Review(id_usuario, id_sitio)
+        
+        try:
+            # Obtener el estado de 'visito'
+            visito_status = review.get_visito_status()
+            if visito_status is not None:
+                return jsonify({"visito": visito_status}), 200
+            else:
+                return jsonify({"visito": False}), 404
+        except Exception as e:
+            # Manejar errores en la obtención del estado de 'visito'
+            return jsonify({"error": str(e)}), 500
+        
+         
 # Clase RecomendacionHandler
 class RecomendacionHandler:
     @staticmethod
@@ -295,7 +324,7 @@ class RecomendacionHandler:
     
     @staticmethod
     def add_closest_sites():
-        recos_sitio = RecosSitio(MongoDBManager())
+        recos_sitio = Recomendaciones(MongoDBManager())
         db = MongoDBManager().get_db()
         sitios_collection = db["sitios"]
 
@@ -310,7 +339,7 @@ class RecomendacionHandler:
     @staticmethod
     def buscar_sitios_cercanos():
         db_manager = MongoDBManager()
-        recos_sitio = RecosSitio(db_manager)
+        recos_sitio = Recomendaciones(db_manager)
 
         data = request.get_json()
         sitio_id = data.get("sitio_id")
@@ -329,7 +358,7 @@ class RecomendacionHandler:
     @staticmethod
     def buscar_sitios_parecidos():
         db_manager = MongoDBManager()
-        recos_sitio = RecosSitio(db_manager)
+        recos_sitio = Recomendaciones(db_manager)
 
         data = request.get_json()
         sitio_id = data.get("sitio_id")
@@ -370,6 +399,7 @@ api_bp.add_url_rule('/registersitio', view_func=ReviewHandler.register_visit, me
 api_bp.add_url_rule('/addlike', view_func=ReviewHandler.add_like, methods=['POST'])
 api_bp.add_url_rule('/addcomment', view_func=ReviewHandler.add_comment, methods=['POST'])
 api_bp.add_url_rule('/addqualifi', view_func=ReviewHandler.add_qualifi, methods=['POST'])
+api_bp.add_url_rule('/getvisito', view_func=ReviewHandler.get_visito_status, methods=['POST'])
 
 # Rutas de Recomendaciones
 api_bp.add_url_rule('/reset_cercanos', view_func=RecomendacionHandler.reset_cercanos, methods=['POST'])
