@@ -588,7 +588,9 @@ class RecosSitio:
         recos_sitios_collection = db["recos_sitios"]
         sitio = recos_sitios_collection.find_one({"_idsitio": sitio_id})
         if sitio:
-            return [str(s) for s in sitio.get("sitios_cercanos", [])]
+            cercanos = sitio.get("sitios_cercanos", [])
+            formatted_results = [{"object_id": str(s["_id"]), "distancia": s["distancia"]} for s in cercanos]
+            return formatted_results
         else:
             return []
 
