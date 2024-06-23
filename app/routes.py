@@ -84,9 +84,8 @@ class UserHandler:
         return jsonify({"mensaje": "La colección de usuarios ha sido restablecida"}), 200
 
 
-# RUTAS DE SITIOS
 class SitioHandler:
-    
+
     @staticmethod
     def reset_sitios():
         db_manager = MongoDBManager()
@@ -155,6 +154,14 @@ class SitioHandler:
         except Exception as e:
             return jsonify({"error": str(e)}), 400
 
+    @staticmethod
+    def get_all_sites():
+        try:
+            sitios = Sitio.get_all_sites()
+            sitios_resumen = [{"id": str(sitio["_id"]), "nombre": sitio["nombre"]} for sitio in sitios]
+            return jsonify({"sitios": sitios_resumen}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
 
 # RUTAS DE REVIEWS
 class ReviewHandler:
@@ -354,6 +361,7 @@ api_bp.add_url_rule('/addvisit', view_func=SitioHandler.add_visit, methods=['POS
 api_bp.add_url_rule('/get_top_visited', view_func=SitioHandler.get_top_visited, methods=['GET'])
 api_bp.add_url_rule('/get_top_liked', view_func=SitioHandler.get_top_liked, methods=['GET'])
 api_bp.add_url_rule('/get_info_sitio', view_func=SitioHandler.getinfo_sitio, methods=['POST'])
+api_bp.add_url_rule('/get_sitios', view_func=SitioHandler.get_all_sites, methods=['GET'])
 
 # Rutas de Reviews
 api_bp.add_url_rule('/reset_reviews', view_func=ReviewHandler.reset_reviews, methods=['POST'])

@@ -326,7 +326,14 @@ class Sitio:
         top_sitios = sitios_collection.find().sort("cant_likes", -1).limit(4)
         top_sitios_ids = [str(sitio['_id']) for sitio in top_sitios]
         return top_sitios_ids
-    
+
+    @staticmethod
+    def get_all_sites():
+        db = MongoDBManager().get_db()
+        sitios_collection = db["sitios"]
+        sitios = list(sitios_collection.find({}, {"nombre": 1}))  # Proyectamos solo el campo 'nombre'
+        return sitios
+
     @classmethod
     def from_json(cls, data):
         nombre = data.get("nombre")
